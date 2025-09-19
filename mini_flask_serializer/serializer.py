@@ -8,8 +8,8 @@ class MiniFlaskSerializer:
     def __init__(self):
         self.serialize = {} #An attribute that returns a JSON object.
 
-    def serializer(self, obj: Any, exclude_fields: List[str] =None, include_fields: List[str] =None) -> Dict[str, Any]:
-
+    def serializer(self, obj: Any, exclude_fields: List[str] = None, include_fields: List[str] = None, many: bool = False) -> Dict[str, Any]:
+        
         """
         Serialize an object with optional field filtering.
         
@@ -17,10 +17,22 @@ class MiniFlaskSerializer:
             obj: Any object with attributes, to_dict(), or to_json() method
             exclude_fields: List of field names to exclude
             include_fields: List of field names to include (whitelist). This returns the fields name and values you specified in the include field.
+            many: A boolean default to False for returning a single object of the model.
             
         Returns:
             Dictionary of serialized data
         """
+
+        if many:
+            if not hasattr(obj, "__iter__"):
+                raise ValueError("Cannot serialize on many=True on non-iterable objects.")
+            
+            return [self._serializer(item, include_fields=include_fields, exclude_fields=exclude_fields) for item in obj]
+        
+        return self._serializer(obj, include_fields=include_fields, exclude_fields=exclude_fields)
+    
+
+    def _serializer(self, obj: Any, exclude_fields: List[str], include_fields: List[str]) -> Dict[str, Any]:
 
         self.serialize = {} # Repeated here to avoid accumulation of data.
 
@@ -42,6 +54,15 @@ class MiniFlaskSerializer:
 
         for attr in dir(obj):
             if attr.startswith("_") or callable(getattr(obj, attr)):
+                continue
+
+            if attr.startswith("query"):
+                continue
+
+            if attr.startswith("metadata"):
+                continue
+
+            if attr.startswith("registry"):
                 continue
 
             if attr in exclude_fields:
