@@ -1,5 +1,7 @@
 from typing import List, Dict, Any
 
+from .exception import ValidationError
+
 
 class MiniFlaskSerializer:
     """This mini_flask_serializer class is used to serializer an instance of your flask SQLAlchemy model.
@@ -100,3 +102,45 @@ class MiniFlaskSerializer:
             self.serialize[key] = value
 
         return self.serialize
+    
+
+    def validate_data(self, fields: Dict[str, Any], expected_fields: List[str] = False) -> Dict[str, Any]:
+        """
+            This functions does minimal validation on your api data and compares the fields your flask api is returning against your expected fields,
+            to ensure you are getting the exact fields you want.
+
+            ARGS:
+                expepected_fields: default=False: A list of fields you are expecting from your api. e.g ["title", "content", "author"].
+                fields: A dictionary gotten from your flask api that is suppose to match your expected_fields.
+
+            RETURNS:
+                    A dictionary if all fields match or an error if it doesn't match.
+        """
+        self.serialize = {}
+
+        if expected_fields:
+            unexpected_fields = set(fields.keys()) - set(expected_fields)
+
+            if unexpected_fields:
+                raise ValidationError(f"{unexpected_fields} is not an expected field.")
+            
+            missing_fields = set(expected_fields) - set(fields.keys())
+            
+            if missing_fields:
+                raise ValidationError(f"{missing_fields} field is required.")
+  
+        for key, value in fields.items():
+            if key.startswith("_") or key.startswith("-") or key.startswith("/") or key.startswith("\\"):
+                raise ValidationError(f"{key} cannot start with an underscore _ or hypen - or slash / or \\")
+            
+            if value == None or value == "" or value == " ":
+                raise ValidationError(f"{key} can't be empty.")
+            
+            if len(value) <= 2:
+               raise ValidationError(f"{key} is too short.")
+            
+            
+            self.serialize[key] = value
+
+        return self.serialize
+
