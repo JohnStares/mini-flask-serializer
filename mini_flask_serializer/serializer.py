@@ -144,3 +144,37 @@ class MiniFlaskSerializer:
 
         return self.serialize
 
+
+    def save_to_model(self, model_instance, model):
+        """
+            This function saves your request to the specified database only after it has been sanitized.
+
+            Avoid this function if your data haven't been sanitized manually or automatically via the validate_date function.
+
+            ARGS:
+                model_instance: This represent the model in which you want to add data to. e.g User(), Note() class from your models.py or so.
+                Don't pass in with the () just User is ok.
+                model: This represents your SQLAlchemy instance. e.g db = SQLAlcehmy. The db or whatever name you use is what you will pass in.
+
+            RETURNS:
+                    An instance of model_instance.
+                    
+        """
+        try:
+            instance = model_instance()
+
+            for key, value in self.serialize.items():
+                if hasattr(instance, key):
+                    setattr(instance, key, value)
+
+            if hasattr(model, "session"):
+                model.session.add(instance)
+                model.session.commit()
+                
+            self.serialize = {}
+            
+        except Exception as e:
+            model.session.rollback()
+            raise e
+        
+        return instance
