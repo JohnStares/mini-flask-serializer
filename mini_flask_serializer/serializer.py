@@ -136,7 +136,10 @@ class MiniFlaskSerializer:
             if value == None or value == "" or value == " ":
                 raise ValidationError(f"{key} can't be empty.")
             
-            if len(value) <= 2:
+            if isinstance(value, int):
+                pass
+
+            elif len(value) <= 2:
                raise ValidationError(f"{key} is too short.")
             
             
@@ -177,4 +180,4 @@ class MiniFlaskSerializer:
             model.session.rollback()
             raise e
         
-        return instance
+        return instance 
