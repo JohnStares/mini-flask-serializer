@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 
-from .exception import ValidationError, MissingArgument
+from .exception import ValidationError
 
 
 class MiniFlaskSerializer:
