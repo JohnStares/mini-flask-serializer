@@ -1,3 +1,5 @@
 build
 mini_flask_serializer.egg-info
 venv
+test/__pycache__
+mini_flask_serializer/__pycache__
