@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 
-from .exception import ValidationError
+from .exception import ValidationError, MissingArgument
 
 
 class MiniFlaskSerializer:
@@ -109,11 +109,11 @@ class MiniFlaskSerializer:
             This functions does minimal validation on your api data and compares the fields your flask api is returning against your expected fields,
             to ensure you are getting the exact fields you want.
 
-            ARGS:
+            Args:
                 expepected_fields: default=False: A list of fields you are expecting from your api. e.g ["title", "content", "author"].
                 fields: A dictionary gotten from your flask api that is suppose to match your expected_fields.
 
-            RETURNS:
+            Returns:
                     A dictionary if all fields match or an error if it doesn't match.
         """
         self.serialize = {}
@@ -136,10 +136,7 @@ class MiniFlaskSerializer:
             if value == None or value == "" or value == " ":
                 raise ValidationError(f"{key} can't be empty.")
             
-            if isinstance(value, int):
-                pass
-
-            elif len(value) <= 2:
+            if isinstance(value, str) and len(value) <= 2:
                raise ValidationError(f"{key} is too short.")
             
             
@@ -154,12 +151,12 @@ class MiniFlaskSerializer:
 
             Avoid this function if your data haven't been sanitized manually or automatically via the validate_date function.
 
-            ARGS:
+            Args:
                 model_instance: This represent the model in which you want to add data to. e.g User(), Note() class from your models.py or so.
-                Don't pass in with the () just User is ok.
-                model: This represents your SQLAlchemy instance. e.g db = SQLAlcehmy. The db or whatever name you use is what you will pass in.
+                                Don't pass in with the () just User is ok.
+                model: This represents your SQLAlchemy instance. e.g db = SQLAlcehmy(). The db or whatever name you use is what you will pass in.
 
-            RETURNS:
+            Returns:
                     An instance of model_instance.
                     
         """
