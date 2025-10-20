@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set
 
 from .exception import ValidationError
 
@@ -10,7 +10,7 @@ class MiniFlaskSerializer:
     def __init__(self):
         self.serialize = {} #An attribute that returns a JSON object.
 
-    def serializer(self, obj: Any, exclude_fields: List[str] = None, include_fields: List[str] = None, many: bool = False) -> Dict[str, Any]:
+    def serializer(self, obj: Any, exclude_fields: List[str] = None, include_fields: List[str] = None, many: bool = False, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
         
         """
         Serialize an object with optional field filtering.
@@ -25,63 +25,234 @@ class MiniFlaskSerializer:
             Dictionary of serialized data
         """
 
+        if _visited is None:
+            _visited = set()
+
         if many:
             if not hasattr(obj, "__iter__"):
                 raise ValueError("Cannot serialize on many=True on non-iterable objects.")
             
-            return [self._serializer(item, include_fields=include_fields, exclude_fields=exclude_fields) for item in obj]
+            return [self._serializer(item, include_fields=include_fields, exclude_fields=exclude_fields, max_depth=max_depth, _current_depth=_current_depth, _visited=_visited) for item in obj]
         
-        return self._serializer(obj, include_fields=include_fields, exclude_fields=exclude_fields)
+        return self._serializer(obj, include_fields=include_fields, exclude_fields=exclude_fields, max_depth=max_depth, _visited=_visited, _current_depth=_current_depth)
     
 
-    def _serializer(self, obj: Any, exclude_fields: List[str], include_fields: List[str]) -> Dict[str, Any]:
+    def _serializer(self, obj: Any, exclude_fields: List[str], include_fields: List[str], max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
 
-        self.serialize = {} # Repeated here to avoid accumulation of data.
+        if _visited is None:
+            _visited - set()
+
+        obj_id = id(obj)
+
+        if obj_id in _visited:
+            return {"CIRCULAR REFERENCE": True}
+        
+        _visited.add(obj_id)
+
+        result = {}
 
         exclude_fields = exclude_fields or []
         include_fields = include_fields or []
         use_whitelist = len(include_fields) > 0
 
-        if hasattr(obj, "to_dict"):
-            data: Dict[str, Any] = obj.to_dict()
+        if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict", None)):
+            try:
+                data: Dict[str, Any] = obj.to_dict()
 
-            return self._filter_data(data, exclude_fields=exclude_fields, include_fields=include_fields, use_whitelist=use_whitelist)
+                return self._filter_data(
+                    data,
+                    exclude_fields=exclude_fields,
+                    include_fields=include_fields,
+                    use_whitelist=use_whitelist,
+                    max_depth=max_depth,
+                    _current_depth=_current_depth,
+                    _visited=_visited
+                )
+            except (AttributeError, TypeError):
+                pass
+        
 
-        if hasattr(obj, "to_json"):
-            data: Dict[str, Any] = obj.to_json()
+        if hasattr(obj, "to_json") and callable(getattr(obj, "to_json", None)):
+            try:
+                data: Dict[str, Any] = obj.to_json()
 
-            return self._filter_data(data, exclude_fields=exclude_fields, include_fields=include_fields, use_whitelist=use_whitelist)
-
-
-
+                return self._filter_data(
+                    data,
+                    exclude_fields=exclude_fields,
+                    include_fields=include_fields,
+                    use_whitelist=use_whitelist,
+                    max_depth=max_depth,
+                    _current_depth=_current_depth,
+                    _visited=_visited
+                )
+            except (AttributeError, TypeError):
+                pass
+    
         for attr in dir(obj):
             if attr.startswith("_") or callable(getattr(obj, attr)):
                 continue
-
             if attr.startswith("query"):
                 continue
-
-            if attr.startswith("metadata"):
-                continue
-
             if attr.startswith("registry"):
                 continue
-
+            if attr.startswith("metadata"):
+                continue
             if attr in exclude_fields:
                 continue
-
             if use_whitelist and attr not in include_fields:
                 continue
 
-            self.serialize[attr] = getattr(obj, attr)
+            value = getattr(obj, attr)
 
-        return self.serialize
+            if _current_depth < max_depth:
+                result[attr] = self._serialize_value(
+                    value,
+                    exclude_fields=exclude_fields,
+                    include_fields=include_fields,
+                    max_depth=max_depth,
+                    _current_depth=_current_depth,
+                    _visited=_visited.copy()
+                )
+            else:
+                result[attr] = self._serialize_simple_value(value)
+
+        return result
     
 
-    def _filter_data(self, data: Any, exclude_fields: List[str], include_fields: List[str], use_whitelist: bool) -> Dict[str, Any]:
+    def _serialize_value(self, value: Any, exclude_fields: List[str], include_fields: List[str], max_depth: int, _current_depth: int, _visited: Set[int]) -> Any:
+        if value is None:
+            return None
+        
+        if isinstance(value, (str, int, float, bool)):
+            return value
+        
+        if hasattr(value, "isoformat"):
+            try:
+                return value.isoformat()
+            except:
+                pass
+        
+        if hasattr(value, "__iter__") and not isinstance(value, (str, dict, bytes)):
+            try:
+                result = []
+
+                for item in value:
+                
+                    if hasattr(item, "__tablename__") or hasattr(item, "_sa_instance_state"):
+
+                        serialized = self._serializer(
+                            item,
+                            exclude_fields=exclude_fields,
+                            include_fields=include_fields,
+                            max_depth=max_depth,
+                            _current_depth=_current_depth + 1,
+                            _visited=_visited.copy()
+                        )
+
+                        result.append(serialized)
+
+                    else:
+                        serialized = self._serialize_value(
+                            item,
+                            exclude_fields=exclude_fields,
+                            include_fields=include_fields,
+                            max_depth=max_depth,
+                            _current_depth=_current_depth + 1,
+                            _visited=_visited.copy()
+                        )
+                        result.append(serialized)
+
+                return result
+                        
+        
+            except Exception as e:
+                print("Error serializing list due to ", e)
+                return self._serialize_simple_value(value)
+            
+
+        if isinstance(value, dict):
+            return {
+                k: self._serialize_value(
+                        v,
+                        exclude_fields=exclude_fields,
+                        include_fields=include_fields,
+                        max_depth=max_depth,
+                        _current_depth=_current_depth + 1,
+                        _visited=_visited.copy()
+                    )
+                    for k, v in value.items()
+            }
+        
+        
+        if hasattr(value, "__tablename__") or hasattr(value, "to_json") or hasattr(value, "to_dict") or hasattr(value, "_sa_instance_state"):
+            return self._serializer(
+                        value,
+                        exclude_fields=exclude_fields,
+                        include_fields=include_fields,
+                        max_depth=max_depth,
+                        _current_depth=_current_depth + 1,
+                        _visited=_visited
+                    )
+        
+
+        return self._serialize_simple_value(value)
+
+
+
+    def _serialize_simple_value(self, value: Any) -> Any:
+
+        if value is None:
+            return None
+
+        if isinstance(value, (str, float, int, bool)):
+            return value
+
+        
+        if isinstance(value, bytes):
+            try:
+                return value.decode("utf-8")
+            except:
+                return str(value)
+
+        try:
+            from decimal import Decimal
+
+            if isinstance(value, Decimal):
+                return float(value)
+        except ImportError:
+            pass
+
+        if hasattr(value, "_sa_instance_state"):
+            if hasattr(value, "to_dict") and callable(getattr(value, "to_dict", None)):
+                try:
+                    return value.to_dict()
+                except:
+                    pass
+
+        if hasattr(value, "__table__"):
+            try:
+                return {c.name: getattr(value, c.name) for c in value.__table__.columns}
+            except:
+                pass
+
+        if hasattr(value, "__tablename__") or hasattr(value, "__dict__"):
+            try:
+                return {k: v for k, v in value.__dict__.items() if not k.startswith("_")}
+            except:
+                pass
+
+        try:
+            return str(value)
+        except:
+            return None     
+
+    def _filter_data(self, data: Any, exclude_fields: List[str], include_fields: List[str], use_whitelist: bool, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
         """Helper methods to add exclude and include fields to to_dict and to_json method of the object model you want to serialize."""
 
-        self.serialize = {} # Repeated here to avoid accumulation of data.
+        if _visited is None:
+            _visited = set()
+
+        result = {}
 
         if isinstance(data, str):
             try:
@@ -99,9 +270,19 @@ class MiniFlaskSerializer:
             if use_whitelist and key not in include_fields:
                 continue
 
-            self.serialize[key] = value
+            if _current_depth < max_depth:
+                result[key] = self._serialize_value(
+                        value,
+                        exclude_fields=exclude_fields,
+                        include_fields=include_fields,
+                        max_depth=max_depth,
+                        _current_depth=_current_depth + 1,
+                        _visited=_visited.copy()
+                    )
+            else:
+                result[key] = self._serialize_simple_value(value)
 
-        return self.serialize
+        return result
     
 
     def validate_data(self, fields: Dict[str, Any], expected_fields: List[str] = False) -> Dict[str, Any]:
