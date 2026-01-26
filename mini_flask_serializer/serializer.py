@@ -1,16 +1,31 @@
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any, Set, Optional
+
+from flask import Flask
 
 from .exception import ValidationError
+from mini_flask_serializer.handler import handle_error
 
 
 class MiniFlaskSerializer:
     """This mini_flask_serializer class is used to serializer an instance of your flask SQLAlchemy model.
     It return a json serialized format that you can use for your flask api."""
 
-    def __init__(self):
-        self.serialize = {} #An attribute that returns a JSON object.
+    def __init__(self, app: Optional[Flask] = None):
+        self.app = app
 
-    def serializer(self, obj: Any, exclude_fields: List[str] = None, include_fields: List[str] = None, many: bool = False, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
+        if self.app is not None:
+            handle_error(self.app)
+
+
+    def init_app(self, app: Flask):
+        if self.app is None:
+            self.app = app
+
+        # Register error handling
+        handle_error(self.app)
+
+
+    def serializer(self, obj: Any, exclude_fields: List[str] | None = None, include_fields: List[str] | None = None, many: bool = False, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] | None = None) -> Dict[str, Any] | List[Dict[str, Any]]:
         
         """
         Serialize an object with optional field filtering.
