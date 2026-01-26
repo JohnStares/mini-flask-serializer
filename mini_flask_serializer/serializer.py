@@ -84,7 +84,7 @@ class MiniFlaskSerializer:
                     _visited=_visited
                 )
             except (AttributeError, TypeError):
-                pass
+                raise
         
 
         if hasattr(obj, "to_json") and callable(getattr(obj, "to_json", None)):
@@ -101,7 +101,7 @@ class MiniFlaskSerializer:
                     _visited=_visited
                 )
             except (AttributeError, TypeError):
-                pass
+                raise
     
         for attr in dir(obj):
             if attr.startswith("_") or callable(getattr(obj, attr)):
@@ -144,8 +144,8 @@ class MiniFlaskSerializer:
         if hasattr(value, "isoformat"):
             try:
                 return value.isoformat()
-            except:
-                pass
+            except ValueError:
+                raise
         
         if hasattr(value, "__iter__") and not isinstance(value, (str, dict, bytes)):
             try:
