@@ -16,7 +16,6 @@ def san():
     miniser = MiniFlaskSerializer()
     yield miniser
 
-    miniser.serialize.clear()
 
 
 def test_with_dict(san):
