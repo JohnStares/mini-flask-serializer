@@ -14,44 +14,17 @@ pip install git+https://github.com/JohnStares/mini-flask-serializer.git
 
 ```python
 
+from flask import Flask
 from mini_flask_serializer import MiniFlaskSerializer
 
-serializer = MiniFlaskSerializer()
+app = Flask(__name__)
 
-```
+serializer = MiniFlaskSerializer(app)
 
-### A MUST
+# Or you can initialize it later
 
-create an exception.py file in the same directory your __init__.py file is and do the following.
+serializer.init_app(app)
 
-```python
-
-from mini_flask_serializer.exception import ValidationError
-
-class CustomValidation(ValidationError):
-    pass
-
-```
-
-
-In your __init__.py file where your app = Flask(__name__) do the following.
-
-```python
-from flask  import Flask
-from .exception import CustomValidationError
-
-def create_app():
-    app = Flask(__name__)
-
-    @app.errorhandler(CustomValidationError)
-    def handle_validaton_error(error):
-        return jsonify({
-            "type": "ValidationError",
-            "error": f"{error}"
-        }), 400
-
-
-    return app
 ```
 
 ### In your Flask routes

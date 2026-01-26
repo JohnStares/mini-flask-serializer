@@ -1,16 +1,31 @@
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any, Set, Optional
+
+from flask import Flask
 
 from .exception import ValidationError
+from mini_flask_serializer.handler import handle_error
 
 
 class MiniFlaskSerializer:
     """This mini_flask_serializer class is used to serializer an instance of your flask SQLAlchemy model.
     It return a json serialized format that you can use for your flask api."""
 
-    def __init__(self):
-        self.serialize = {} #An attribute that returns a JSON object.
+    def __init__(self, app: Optional[Flask] = None):
+        self.app = app
 
-    def serializer(self, obj: Any, exclude_fields: List[str] = None, include_fields: List[str] = None, many: bool = False, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
+        if self.app is not None:
+            handle_error(self.app)
+
+
+    def init_app(self, app: Flask):
+        if self.app is None:
+            self.app = app
+
+        # Register error handling
+        handle_error(self.app)
+
+
+    def serializer(self, obj: Any, exclude_fields: List[str] | None = None, include_fields: List[str] | None = None, many: bool = False, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] | None = None) -> Dict[str, Any] | List[Dict[str, Any]]:
         
         """
         Serialize an object with optional field filtering.
@@ -37,10 +52,10 @@ class MiniFlaskSerializer:
         return self._serializer(obj, include_fields=include_fields, exclude_fields=exclude_fields, max_depth=max_depth, _visited=_visited, _current_depth=_current_depth)
     
 
-    def _serializer(self, obj: Any, exclude_fields: List[str], include_fields: List[str], max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
+    def _serializer(self, obj: Any, exclude_fields: List[str] | None, include_fields: List[str] | None, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] | None = None) -> Dict[str, Any]:
 
         if _visited is None:
-            _visited - set()
+            _visited = set()
 
         obj_id = id(obj)
 
@@ -69,7 +84,7 @@ class MiniFlaskSerializer:
                     _visited=_visited
                 )
             except (AttributeError, TypeError):
-                pass
+                raise
         
 
         if hasattr(obj, "to_json") and callable(getattr(obj, "to_json", None)):
@@ -86,7 +101,7 @@ class MiniFlaskSerializer:
                     _visited=_visited
                 )
             except (AttributeError, TypeError):
-                pass
+                raise
     
         for attr in dir(obj):
             if attr.startswith("_") or callable(getattr(obj, attr)):
@@ -129,8 +144,8 @@ class MiniFlaskSerializer:
         if hasattr(value, "isoformat"):
             try:
                 return value.isoformat()
-            except:
-                pass
+            except ValueError:
+                raise
         
         if hasattr(value, "__iter__") and not isinstance(value, (str, dict, bytes)):
             try:
@@ -166,7 +181,6 @@ class MiniFlaskSerializer:
                         
         
             except Exception as e:
-                print("Error serializing list due to ", e)
                 return self._serialize_simple_value(value)
             
 
@@ -220,33 +234,35 @@ class MiniFlaskSerializer:
             if isinstance(value, Decimal):
                 return float(value)
         except ImportError:
-            pass
+            raise
+        except Exception:
+            raise
 
         if hasattr(value, "_sa_instance_state"):
             if hasattr(value, "to_dict") and callable(getattr(value, "to_dict", None)):
                 try:
                     return value.to_dict()
-                except:
-                    pass
+                except ValueError:
+                    raise
 
         if hasattr(value, "__table__"):
             try:
                 return {c.name: getattr(value, c.name) for c in value.__table__.columns}
-            except:
-                pass
+            except ValueError:
+                raise
 
         if hasattr(value, "__tablename__") or hasattr(value, "__dict__"):
             try:
                 return {k: v for k, v in value.__dict__.items() if not k.startswith("_")}
-            except:
-                pass
+            except ValueError:
+                raise
 
         try:
             return str(value)
-        except:
+        except (ValueError, TypeError):
             return None     
 
-    def _filter_data(self, data: Any, exclude_fields: List[str], include_fields: List[str], use_whitelist: bool, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
+    def _filter_data(self, data: Any, exclude_fields: List[str], include_fields: List[str], use_whitelist: bool, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] | None = None) -> Dict[str, Any]:
         """Helper methods to add exclude and include fields to to_dict and to_json method of the object model you want to serialize."""
 
         if _visited is None:
@@ -255,13 +271,11 @@ class MiniFlaskSerializer:
         result = {}
 
         if isinstance(data, str):
+            import json
             try:
-                import json
-
                 data: Dict[str, Any] = json.loads(data)
             except json.JSONDecodeError:
                 return {}
-
 
         for key, value in data.items():
             if key in exclude_fields:
@@ -285,13 +299,13 @@ class MiniFlaskSerializer:
         return result
     
 
-    def validate_data(self, fields: Dict[str, Any], expected_fields: List[str] = False) -> Dict[str, Any]:
+    def validate_data(self, fields: Dict[str, Any], expected_fields: List[str] | None = None) -> Dict[str, Any]:
         """
             This functions does minimal validation on your api data and compares the fields your flask api is returning against your expected fields,
             to ensure you are getting the exact fields you want.
 
             Args:
-                expepected_fields: default=False: A list of fields you are expecting from your api. e.g ["title", "content", "author"].
+                expepected_fields: default=None: A list of fields you are expecting from your api. e.g ["title", "content", "author"].
                 fields: A dictionary gotten from your flask api that is suppose to match your expected_fields.
 
             Returns:
@@ -299,7 +313,7 @@ class MiniFlaskSerializer:
         """
         self.serialize = {}
 
-        if expected_fields:
+        if expected_fields is not None:
             unexpected_fields = set(fields.keys()) - set(expected_fields)
 
             if unexpected_fields:

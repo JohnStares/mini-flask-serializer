@@ -16,3 +16,18 @@
 ### Patch
 
 - Changed def serializer to def validate_data and added more note on the method documentation.
+
+
+## [Version 2.1.0](https://github.com/JohnStares/mini-flask-serializer/tags) (2026-01-26)
+
+### New Feature
+
+- The clas MiniFlaskSerializer can now accept your flask app for the purpose of error handling: ['72c4ebd'](https://github.com/JohnStares/mini-flask-serializer/commit/72c4ebd796038b145796a46c053d514c367acd3d)
+
+- Create error handler functions: ['52df215'](https://github.com/JohnStares/mini-flask-serializer/commit/52df215094c6306e777dc66ee5f59ad202da1120)
+
+### Patches
+
+- Raise errors rather than skipping them with the pass statement: ['8bdb7e9'](https://github.com/JohnStares/mini-flask-serializer/commit/8bdb7e9839783fc7b4bf68ee0cfb991fc455f553)
+
+- Changed a type from - to =: ['260419b'](https://github.com/JohnStares/mini-flask-serializer/commit/260419b08000214f828d5764dca1bfdbb2dee029)
