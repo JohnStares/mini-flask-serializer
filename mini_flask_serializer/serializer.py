@@ -181,7 +181,6 @@ class MiniFlaskSerializer:
                         
         
             except Exception as e:
-                print("Error serializing list due to ", e)
                 return self._serialize_simple_value(value)
             
 
