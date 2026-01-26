@@ -271,13 +271,11 @@ class MiniFlaskSerializer:
         result = {}
 
         if isinstance(data, str):
+            import json
             try:
-                import json
-
                 data: Dict[str, Any] = json.loads(data)
             except json.JSONDecodeError:
                 return {}
-
 
         for key, value in data.items():
             if key in exclude_fields:
