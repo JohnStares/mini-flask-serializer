@@ -234,33 +234,35 @@ class MiniFlaskSerializer:
             if isinstance(value, Decimal):
                 return float(value)
         except ImportError:
-            pass
+            raise
+        except Exception:
+            raise
 
         if hasattr(value, "_sa_instance_state"):
             if hasattr(value, "to_dict") and callable(getattr(value, "to_dict", None)):
                 try:
                     return value.to_dict()
-                except:
-                    pass
+                except ValueError:
+                    raise
 
         if hasattr(value, "__table__"):
             try:
                 return {c.name: getattr(value, c.name) for c in value.__table__.columns}
-            except:
-                pass
+            except ValueError:
+                raise
 
         if hasattr(value, "__tablename__") or hasattr(value, "__dict__"):
             try:
                 return {k: v for k, v in value.__dict__.items() if not k.startswith("_")}
-            except:
-                pass
+            except ValueError:
+                raise
 
         try:
             return str(value)
-        except:
+        except (ValueError, TypeError):
             return None     
 
-    def _filter_data(self, data: Any, exclude_fields: List[str], include_fields: List[str], use_whitelist: bool, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
+    def _filter_data(self, data: Any, exclude_fields: List[str], include_fields: List[str], use_whitelist: bool, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] | None = None) -> Dict[str, Any]:
         """Helper methods to add exclude and include fields to to_dict and to_json method of the object model you want to serialize."""
 
         if _visited is None:
