@@ -52,10 +52,10 @@ class MiniFlaskSerializer:
         return self._serializer(obj, include_fields=include_fields, exclude_fields=exclude_fields, max_depth=max_depth, _visited=_visited, _current_depth=_current_depth)
     
 
-    def _serializer(self, obj: Any, exclude_fields: List[str], include_fields: List[str], max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] = None) -> Dict[str, Any]:
+    def _serializer(self, obj: Any, exclude_fields: List[str] | None, include_fields: List[str] | None, max_depth: int = 2, _current_depth: int = 0, _visited: Set[int] | None = None) -> Dict[str, Any]:
 
         if _visited is None:
-            _visited - set()
+            _visited = set()
 
         obj_id = id(obj)
 
