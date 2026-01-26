@@ -299,13 +299,13 @@ class MiniFlaskSerializer:
         return result
     
 
-    def validate_data(self, fields: Dict[str, Any], expected_fields: List[str] = False) -> Dict[str, Any]:
+    def validate_data(self, fields: Dict[str, Any], expected_fields: List[str] | None = None) -> Dict[str, Any]:
         """
             This functions does minimal validation on your api data and compares the fields your flask api is returning against your expected fields,
             to ensure you are getting the exact fields you want.
 
             Args:
-                expepected_fields: default=False: A list of fields you are expecting from your api. e.g ["title", "content", "author"].
+                expepected_fields: default=None: A list of fields you are expecting from your api. e.g ["title", "content", "author"].
                 fields: A dictionary gotten from your flask api that is suppose to match your expected_fields.
 
             Returns:
@@ -313,7 +313,7 @@ class MiniFlaskSerializer:
         """
         self.serialize = {}
 
-        if expected_fields:
+        if expected_fields is not None:
             unexpected_fields = set(fields.keys()) - set(expected_fields)
 
             if unexpected_fields:
