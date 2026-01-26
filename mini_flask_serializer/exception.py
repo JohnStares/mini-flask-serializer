@@ -2,9 +2,10 @@ class BaseException(Exception):
     pass
     
 class ValidationError(BaseException):
-    pass
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
 
-class AttributeError(ValidationError):
-    pass
-
+class AttributeError(BaseException):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
